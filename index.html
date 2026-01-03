@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>3D Kocka 300px</title>
+    <title>3D Kocka - Dlhý spin</title>
     <style>
         body {
             display: flex;
@@ -38,11 +38,11 @@
             background: #ff6b81;
         }
 
-        /* 🎲 Scéna - 300px */
+        /* 🎲 Scéna */
         .scene {
             width: 300px;
             height: 300px;
-            perspective: 1200px; /* Väčšia perspektíva pre 300px kocku */
+            perspective: 1200px;
             display: none;
         }
 
@@ -51,7 +51,6 @@
             height: 100%;
             position: relative;
             transform-style: preserve-3d;
-            /* Polovica z 300px je 150px */
             transform: translateZ(-150px);
             cursor: grab;
         }
@@ -69,7 +68,6 @@
             display: flex;
             justify-content: center;
             align-items: center;
-            /* Zadné steny môžu presvitať pri rotácii, 'visible' je bezpečnejšie pre 3D efekt */
             backface-visibility: hidden; 
         }
 
@@ -79,7 +77,7 @@
             object-fit: cover;
         }
 
-        /* 📍 Pozície stien - posun o 150px (polovica kocky) */
+        /* 📍 Pozície stien */
         .cube__face--front  { transform: rotateY(  0deg) translateZ(150px); }
         .cube__face--right  { transform: rotateY( 90deg) translateZ(150px); }
         .cube__face--back   { transform: rotateY(180deg) translateZ(150px); }
@@ -109,7 +107,6 @@
         const scene = document.getElementById('scene');
         const cube = document.getElementById('cube');
 
-        // Presné uhly pre každú stenu
         const faces = [
             { x: 0, y: 0 },      // 01.jpg
             { x: 0, y: -180 },   // 02.jpg
@@ -121,67 +118,51 @@
 
         let isHolding = false;
         let spinInterval;
-        
-        // Aktuálna rotácia (globálne počítadlo)
         let currentRotX = 0;
         let currentRotY = 0;
 
-        // 1. Spustenie divokého točenia (keď držíš)
+        // 1. Divoké točenie pri držaní (bez animácie)
         function startSpin(e) {
-            // Ignorujeme pravé tlačidlo myši
             if (e.button === 2) return; 
-            
             if (isHolding) return;
             isHolding = true;
 
-            // Vypneme animáciu, aby to reagovalo okamžite
             cube.style.transition = 'none';
 
             spinInterval = setInterval(() => {
-                currentRotX -= 20; // Rýchlosť točenia
-                currentRotY += 40; 
+                currentRotX -= 25; 
+                currentRotY += 45; 
                 cube.style.transform = `translateZ(-150px) rotateX(${currentRotX}deg) rotateY(${currentRotY}deg)`;
             }, 30);
         }
 
-        // 2. Zastavenie a presný dojazd na stenu (keď pustíš)
+        // 2. Hod kockou (s dlhou animáciou)
         function stopSpin() {
             if (!isHolding) return;
             isHolding = false;
             clearInterval(spinInterval);
 
-            // Zapneme plynulú animáciu pre dojazd
-            cube.style.transition = 'transform 1.5s cubic-bezier(0.15, 0.9, 0.34, 1)';
+            // ZMENA: Čas natiahnutý na 2.5s
+            cube.style.transition = 'transform 2.5s cubic-bezier(0.15, 0.9, 0.34, 1)';
 
-            // Vyberieme náhodnú cieľovú stenu
             const randomIndex = Math.floor(Math.random() * 6);
             const target = faces[randomIndex];
 
-            // MATEMATIKA PRE DOVOZ:
-            // 1. Vezmeme aktuálnu rotáciu (kde sme skončili pri točení).
-            // 2. Pridáme 3 plné otočky (3 * 360 = 1080), aby sa to ešte chvíľu točilo.
-            // 3. Zarovnáme to tak, aby zvyšok po delení 360 sedel presne na target.x/y.
+            // ZMENA: Zvýšený počet otáčok (6 plných = 2160 stupňov), aby to lietalo rýchlo
+            const extraSpins = 2160; 
 
-            const extraSpins = 1080; // 3 plné otočky
-
-            // Vypočítame "hrubý" cieľ
-            let targetRawX = currentRotX - extraSpins; // Mínus, aby sme zachovali smer točenia
+            let targetRawX = currentRotX - extraSpins; 
             let targetRawY = currentRotY + extraSpins;
 
-            // Oprava zarovnania (Snap to grid)
-            // Zistíme, o koľko sme "mimo" od ideálneho uhla cieľovej steny
             const remainderX = targetRawX % 360;
             const remainderY = targetRawY % 360;
 
-            // Dopočítame rozdiel k cieľu
             const diffX = target.x - remainderX;
             const diffY = target.y - remainderY;
 
-            // Finálne súradnice sú hrubý cieľ + korekcia
             currentRotX = targetRawX + diffX;
             currentRotY = targetRawY + diffY;
 
-            // Aplikujeme
             cube.style.transform = `translateZ(-150px) rotateX(${currentRotX}deg) rotateY(${currentRotY}deg)`;
         }
 
@@ -191,16 +172,18 @@
             btn.style.display = 'none';
             scene.style.display = 'block';
             
-            // Simulujeme krátke podržanie a pustenie pre prvý hod
-            isHolding = true; // Aby funkcia stopSpin vedela, že má niečo robiť
-            stopSpin();
+            // Simulujeme stav, že sme "držali", aby funkcia stopSpin vykonala hod
+            isHolding = true; 
+            
+            // Okamžite spustíme hod (prehliadač to vykreslí ako okamžitý štart animácie)
+            requestAnimationFrame(() => {
+                stopSpin();
+            });
         });
 
-        // Myš & Dotyk - globálne na dokumente, aby to fungovalo všade
         document.addEventListener('mousedown', startSpin);
         document.addEventListener('mouseup', stopSpin);
-
-        // Pre mobily
+        
         document.addEventListener('touchstart', (e) => { startSpin(e); }, { passive: false });
         document.addEventListener('touchend', stopSpin);
 
