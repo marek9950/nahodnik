@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="sk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Kocka 300px</title>
+    <style>
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #222;
+            margin: 0;
+            font-family: sans-serif;
+            overflow: hidden;
+            user-select: none;
+        }
+
+        /* 🔘 Štartovacie tlačidlo */
+        #start-btn {
+            width: 250px;
+            height: 250px;
+            border-radius: 50%;
+            background: #ff4757;
+            color: white;
+            font-size: 28px;
+            font-weight: bold;
+            border: none;
+            cursor: pointer;
+            box-shadow: 0 0 30px rgba(255, 71, 87, 0.7);
+            transition: transform 0.2s, background 0.2s;
+            z-index: 10;
+        }
+
+        #start-btn:hover {
+            transform: scale(1.05);
+            background: #ff6b81;
+        }
+
+        /* 🎲 Scéna - 300px */
+        .scene {
+            width: 300px;
+            height: 300px;
+            perspective: 1200px; /* Väčšia perspektíva pre 300px kocku */
+            display: none;
+        }
+
+        .cube {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            transform-style: preserve-3d;
+            /* Polovica z 300px je 150px */
+            transform: translateZ(-150px);
+            cursor: grab;
+        }
+        
+        .cube:active {
+            cursor: grabbing;
+        }
+
+        .cube__face {
+            position: absolute;
+            width: 300px;
+            height: 300px;
+            border: 4px solid white;
+            background: rgba(0, 0, 0, 0.8);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            /* Zadné steny môžu presvitať pri rotácii, 'visible' je bezpečnejšie pre 3D efekt */
+            backface-visibility: hidden; 
+        }
+
+        .cube__face img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        /* 📍 Pozície stien - posun o 150px (polovica kocky) */
+        .cube__face--front  { transform: rotateY(  0deg) translateZ(150px); }
+        .cube__face--right  { transform: rotateY( 90deg) translateZ(150px); }
+        .cube__face--back   { transform: rotateY(180deg) translateZ(150px); }
+        .cube__face--left   { transform: rotateY(-90deg) translateZ(150px); }
+        .cube__face--top    { transform: rotateX( 90deg) translateZ(150px); }
+        .cube__face--bottom { transform: rotateX(-90deg) translateZ(150px); }
+
+    </style>
+</head>
+<body>
+
+    <button id="start-btn">Hodz kocku, more!</button>
+
+    <div class="scene" id="scene">
+        <div class="cube" id="cube">
+            <div class="cube__face cube__face--front"><img src="01.jpg" alt="1"></div>
+            <div class="cube__face cube__face--back"><img src="02.jpg" alt="2"></div>
+            <div class="cube__face cube__face--right"><img src="03.jpg" alt="3"></div>
+            <div class="cube__face cube__face--left"><img src="04.jpg" alt="4"></div>
+            <div class="cube__face cube__face--top"><img src="05.jpg" alt="5"></div>
+            <div class="cube__face cube__face--bottom"><img src="06.jpg" alt="6"></div>
+        </div>
+    </div>
+
+    <script>
+        const btn = document.getElementById('start-btn');
+        const scene = document.getElementById('scene');
+        const cube = document.getElementById('cube');
+
+        // Presné uhly pre každú stenu
+        const faces = [
+            { x: 0, y: 0 },      // 01.jpg
+            { x: 0, y: -180 },   // 02.jpg
+            { x: 0, y: -90 },    // 03.jpg
+            { x: 0, y: 90 },     // 04.jpg
+            { x: -90, y: 0 },    // 05.jpg
+            { x: 90, y: 0 }      // 06.jpg
+        ];
+
+        let isHolding = false;
+        let spinInterval;
+        
+        // Aktuálna rotácia (globálne počítadlo)
+        let currentRotX = 0;
+        let currentRotY = 0;
+
+        // 1. Spustenie divokého točenia (keď držíš)
+        function startSpin(e) {
+            // Ignorujeme pravé tlačidlo myši
+            if (e.button === 2) return; 
+            
+            if (isHolding) return;
+            isHolding = true;
+
+            // Vypneme animáciu, aby to reagovalo okamžite
+            cube.style.transition = 'none';
+
+            spinInterval = setInterval(() => {
+                currentRotX -= 20; // Rýchlosť točenia
+                currentRotY += 40; 
+                cube.style.transform = `translateZ(-150px) rotateX(${currentRotX}deg) rotateY(${currentRotY}deg)`;
+            }, 30);
+        }
+
+        // 2. Zastavenie a presný dojazd na stenu (keď pustíš)
+        function stopSpin() {
+            if (!isHolding) return;
+            isHolding = false;
+            clearInterval(spinInterval);
+
+            // Zapneme plynulú animáciu pre dojazd
+            cube.style.transition = 'transform 1.5s cubic-bezier(0.15, 0.9, 0.34, 1)';
+
+            // Vyberieme náhodnú cieľovú stenu
+            const randomIndex = Math.floor(Math.random() * 6);
+            const target = faces[randomIndex];
+
+            // MATEMATIKA PRE DOVOZ:
+            // 1. Vezmeme aktuálnu rotáciu (kde sme skončili pri točení).
+            // 2. Pridáme 3 plné otočky (3 * 360 = 1080), aby sa to ešte chvíľu točilo.
+            // 3. Zarovnáme to tak, aby zvyšok po delení 360 sedel presne na target.x/y.
+
+            const extraSpins = 1080; // 3 plné otočky
+
+            // Vypočítame "hrubý" cieľ
+            let targetRawX = currentRotX - extraSpins; // Mínus, aby sme zachovali smer točenia
+            let targetRawY = currentRotY + extraSpins;
+
+            // Oprava zarovnania (Snap to grid)
+            // Zistíme, o koľko sme "mimo" od ideálneho uhla cieľovej steny
+            const remainderX = targetRawX % 360;
+            const remainderY = targetRawY % 360;
+
+            // Dopočítame rozdiel k cieľu
+            const diffX = target.x - remainderX;
+            const diffY = target.y - remainderY;
+
+            // Finálne súradnice sú hrubý cieľ + korekcia
+            currentRotX = targetRawX + diffX;
+            currentRotY = targetRawY + diffY;
+
+            // Aplikujeme
+            cube.style.transform = `translateZ(-150px) rotateX(${currentRotX}deg) rotateY(${currentRotY}deg)`;
+        }
+
+        // --- Event Listeners ---
+
+        btn.addEventListener('click', () => {
+            btn.style.display = 'none';
+            scene.style.display = 'block';
+            
+            // Simulujeme krátke podržanie a pustenie pre prvý hod
+            isHolding = true; // Aby funkcia stopSpin vedela, že má niečo robiť
+            stopSpin();
+        });
+
+        // Myš & Dotyk - globálne na dokumente, aby to fungovalo všade
+        document.addEventListener('mousedown', startSpin);
+        document.addEventListener('mouseup', stopSpin);
+
+        // Pre mobily
+        document.addEventListener('touchstart', (e) => { startSpin(e); }, { passive: false });
+        document.addEventListener('touchend', stopSpin);
+
+    </script>
+</body>
+</html>
